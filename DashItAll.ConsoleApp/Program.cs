@@ -4,6 +4,7 @@ using DashItAll.ConsoleApp.Network;
 using DashItAll.ConsoleApp.Options;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.InteropServices;
 
 namespace DashItAll.ConsoleApp
@@ -30,9 +31,19 @@ namespace DashItAll.ConsoleApp
                 Console.WriteLine();
             }
 
+            Console.WriteLine("Available devices:");
+            var availableDevices = NetworkMonitor.GetAllDeviceNames().ToArray();
+            for (var i = 0; i < availableDevices.Length; i++)
+            {
+                Console.WriteLine($"[{i + 1}] {availableDevices[i]}");
+            }
+
+            Console.WriteLine("Make a selection: ");
+            var selectedDeviceIndex = int.Parse(Console.ReadLine());
+
             var exampleConfiguration = new ProgramConfiguration
             {
-                DeviceName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "Wi-Fi" : "wlan0",
+                DeviceName = availableDevices[selectedDeviceIndex - 1],
                 Actions = new List<ActionConfiguration>
                 {
                     new ActionConfiguration
