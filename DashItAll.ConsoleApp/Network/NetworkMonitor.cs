@@ -47,15 +47,18 @@ namespace DashItAll.ConsoleApp.Network
         ICaptureDevice GetDevice()
         {
             Console.WriteLine($"Looking for device {_config.DeviceName}...");
+            var discoveredDeviceNames = new HashSet<string>();
             foreach (var captureDevice in CaptureDeviceList.Instance)
             {
-                if (captureDevice.GetName() == _config.DeviceName)
+                var captureDeviceName = captureDevice.GetName();
+                if (captureDeviceName == _config.DeviceName)
                 {
                     return captureDevice;
                 }
+                discoveredDeviceNames.Add(captureDeviceName);
             }
 
-            throw new Exception($"Could not find device {_config.DeviceName}");
+            throw new Exception($"Could not find device {_config.DeviceName}. Available devices: {string.Join(", ", discoveredDeviceNames)}");
         }
 
         string CreatePcapFilter() => "ether host " + string.Join(" or ", _config.Triggers.Select(t => t.SourceMacAddress).Distinct().Select(m => m.FormatMacAddress()));

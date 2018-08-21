@@ -10,9 +10,10 @@
             "request": "launch",
             "preLaunchTask": "build",
             // If you have changed target frameworks, make sure to update the program path.
-            "program": "${workspaceFolder}/bin/Debug/netcoreapp2.1/dash-it-all.dll",
+            "program": "${workspaceFolder}/bin/netcoreapp2.1/dash-it-all.dll",
             "args": [
                 "run",
+                "-c",
                 "C:\\dash-it-all\\config.json"
             ],
             "cwd": "${workspaceFolder}",

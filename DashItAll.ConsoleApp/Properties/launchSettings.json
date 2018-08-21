@@ -2,7 +2,7 @@
   "profiles": {
     "DashItAll.ConsoleApp": {
       "commandName": "Project",
-      "commandLineArgs": "configure -c \"C:\\Users\\matthew.watkins\\Documents\\dash-it-all.json\""
+      "commandLineArgs": "configure -c \"C:\\dash-it-all\\\\config.json\""
     }
   }
 }
