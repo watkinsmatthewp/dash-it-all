@@ -4,6 +4,7 @@ using DashItAll.ConsoleApp.Network;
 using DashItAll.ConsoleApp.Options;
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 
 namespace DashItAll.ConsoleApp
 {
@@ -30,6 +31,7 @@ namespace DashItAll.ConsoleApp
 
             var exampleConfiguration = new ProgramConfiguration
             {
+                DeviceName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "Wi-Fi" : "wlan0",
                 Actions = new List<ActionConfiguration>
                 {
                     new ActionConfiguration
@@ -62,6 +64,14 @@ namespace DashItAll.ConsoleApp
         {
             Console.WriteLine("Running...");
             var configuration = ConfigurationRepository.Load(runActionOptions.ConfigFilePath);
+
+            Console.WriteLine("Triggers:");
+            foreach (var trigger in configuration.Triggers)
+            {
+                Console.WriteLine($"{trigger.SourceMacAddress} => {trigger.ActionName}");
+            }
+            Console.WriteLine();
+
             var networkMonitor = new NetworkMonitor(configuration, new ActionExecutor());
             networkMonitor.Start();
             return 0;
