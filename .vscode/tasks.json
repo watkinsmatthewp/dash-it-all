@@ -7,7 +7,7 @@
             "type": "process",
             "args": [
                 "build",
-                "${workspaceFolder}/DashItAll.ConsoleApp/DashItAll.ConsoleApp.csproj"
+                "${workspaceFolder}"
             ],
             "problemMatcher": "$msCompile"
         },
