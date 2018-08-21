@@ -10,9 +10,10 @@ namespace DashItAll.ConsoleApp
 {
     public static class Program
     {
-        public static int Main(string[] args) => Parser.Default.ParseArguments<ConfigureActionOptions, RunActionOptions>(args).MapResult
+        public static int Main(string[] args) => Parser.Default.ParseArguments<ConfigureActionOptions, DiscoverActionOptions, RunActionOptions>(args).MapResult
         (
             (ConfigureActionOptions configureActionOptions) => Configure(configureActionOptions),
+            (DiscoverActionOptions discoverActionOptions) => Discover(discoverActionOptions),
             (RunActionOptions runActionOptions) => Run(runActionOptions),
             errs => 1
         );
@@ -60,6 +61,15 @@ namespace DashItAll.ConsoleApp
             return 0;
         }
 
+        static int Discover(DiscoverActionOptions discoverActionOptions)
+        {
+            Console.WriteLine("Discovering...");
+            var configuration = ConfigurationRepository.Load(discoverActionOptions.ConfigFilePath);
+            var networkMonitor = new NetworkMonitor(configuration, new ActionExecutor());
+            networkMonitor.StartDiscovery();
+            return 0;
+        }
+
         static int Run(RunActionOptions runActionOptions)
         {
             Console.WriteLine("Running...");
@@ -73,7 +83,7 @@ namespace DashItAll.ConsoleApp
             Console.WriteLine();
 
             var networkMonitor = new NetworkMonitor(configuration, new ActionExecutor());
-            networkMonitor.Start();
+            networkMonitor.StartMonitoring();
             return 0;
         }
     }

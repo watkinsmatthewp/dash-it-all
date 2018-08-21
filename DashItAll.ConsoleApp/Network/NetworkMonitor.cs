@@ -13,6 +13,7 @@ namespace DashItAll.ConsoleApp.Network
         readonly ProgramConfiguration _config;
         readonly ActionExecutor _actionExecutor;
 
+        HashSet<string> _discoveredMacAddresses = new HashSet<string>();
         Dictionary<string, DateTime> _packetsLastReceived = new Dictionary<string, DateTime>();
 
         internal NetworkMonitor(ProgramConfiguration config, ActionExecutor actionExecutor)
@@ -23,20 +24,31 @@ namespace DashItAll.ConsoleApp.Network
 
         internal static IEnumerable<string> GetAllDeviceNames()
         {
-            Console.WriteLine($"Looking for available devices...");
+            Console.WriteLine("Looking for available devices...");
             foreach (var captureDevice in CaptureDeviceList.Instance)
             {
                 yield return captureDevice.GetName();
             }
         }
 
-        internal void Start()
+        internal void StartMonitoring()
         {
             var device = GetDevice();
-            Console.WriteLine("Subscribing to traffic...");
-            device.OnPacketArrival += OnPacketArrival;
+            Console.WriteLine("Subscribing to monitored traffic...");
+            device.OnPacketArrival += OnMonitoringPacketArrival;
             device.Open(DeviceMode.Promiscuous, 1000);
             device.Filter = CreatePcapFilter();
+            Console.WriteLine("Starting capture...");
+            device.StartCapture();
+            Console.WriteLine("Capturing...");
+        }
+
+        internal void StartDiscovery()
+        {
+            var device = GetDevice();
+            Console.WriteLine("Subscribing to all traffic");
+            device.OnPacketArrival += OnDiscoveryPacketArrival;
+            device.Open(DeviceMode.Promiscuous, 1000);
             Console.WriteLine("Starting capture...");
             device.StartCapture();
             Console.WriteLine("Capturing...");
@@ -63,7 +75,7 @@ namespace DashItAll.ConsoleApp.Network
 
         string CreatePcapFilter() => "ether host " + string.Join(" or ", _config.Triggers.Select(t => t.SourceMacAddress).Distinct().Select(m => m.FormatMacAddress()));
 
-        async void OnPacketArrival(object sender, CaptureEventArgs e)
+        async void OnMonitoringPacketArrival(object sender, CaptureEventArgs e)
         {
             var received = DateTime.UtcNow;
             if (e.Packet.LinkLayerType == LinkLayers.Ethernet)
@@ -95,6 +107,29 @@ namespace DashItAll.ConsoleApp.Network
                 {
                     var action = _config.Actions.First(a => a.Name == actionName);
                     await _actionExecutor.Execute(action);
+                }
+            }
+        }
+
+        void OnDiscoveryPacketArrival(object sender, CaptureEventArgs e)
+        {
+            if (e.Packet.LinkLayerType == LinkLayers.Ethernet)
+            {
+                var ethernetPacket = Packet.ParsePacket(e.Packet.LinkLayerType, e.Packet.Data) as EthernetPacket;
+                if (ethernetPacket.Extract(typeof(ARPPacket)) is ARPPacket)
+                {
+                    var sourceMacAddress = ethernetPacket.SourceHwAddress.ToString();
+
+                    var notify = false;
+                    lock (_discoveredMacAddresses)
+                    {
+                        notify = !_discoveredMacAddresses.Add(sourceMacAddress);
+                    }
+
+                    if (notify)
+                    {
+                        Console.WriteLine(sourceMacAddress);
+                    }
                 }
             }
         }
