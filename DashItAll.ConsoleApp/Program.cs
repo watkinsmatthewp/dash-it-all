@@ -9,8 +9,6 @@ namespace DashItAll.ConsoleApp
 {
     public static class Program
     {
-        public static object ConfigurationManager { get; private set; }
-
         public static int Main(string[] args) => Parser.Default.ParseArguments<ConfigureActionOptions, RunActionOptions>(args).MapResult
         (
             (ConfigureActionOptions configureActionOptions) => Configure(configureActionOptions),
