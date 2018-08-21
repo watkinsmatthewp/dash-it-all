@@ -1,0 +1,101 @@
+﻿using DashItAll.ConsoleApp.Configuration;
+using DashItAll.ConsoleApp.Extensions;
+using PacketDotNet;
+using SharpPcap;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace DashItAll.ConsoleApp.Network
+{
+    class NetworkMonitor
+    {
+        readonly ProgramConfiguration _config;
+        readonly ActionExecutor _actionExecutor;
+
+        Dictionary<string, DateTime> _packetsLastReceived = new Dictionary<string, DateTime>();
+
+        internal NetworkMonitor(ProgramConfiguration config, ActionExecutor actionExecutor)
+        {
+            _config = config ?? throw new ArgumentNullException(nameof(config));
+            _actionExecutor = actionExecutor ?? throw new ArgumentNullException(nameof(actionExecutor));
+        }
+
+        internal static IEnumerable<string> GetAllDeviceNames()
+        {
+            Console.WriteLine($"Looking for available devices...");
+            foreach (var captureDevice in CaptureDeviceList.Instance)
+            {
+                yield return captureDevice.GetName();
+            }
+        }
+
+        internal void Start()
+        {
+            var device = GetDevice();
+            Console.WriteLine("Subscribing to traffic...");
+            device.OnPacketArrival += OnPacketArrival;
+            device.Open(DeviceMode.Promiscuous, 1000);
+            device.Filter = CreatePcapFilter();
+            Console.WriteLine("Starting capture...");
+            device.StartCapture();
+            Console.WriteLine("Capturing...");
+        }
+
+        #region Private helpers
+
+        ICaptureDevice GetDevice()
+        {
+            Console.WriteLine($"Looking for device {_config.DeviceName}...");
+            foreach (var captureDevice in CaptureDeviceList.Instance)
+            {
+                if (captureDevice.GetName() == _config.DeviceName)
+                {
+                    return captureDevice;
+                }
+            }
+
+            throw new Exception($"Could not find device {_config.DeviceName}");
+        }
+
+        string CreatePcapFilter() => "ether host " + string.Join(" or ", _config.Triggers.Select(t => t.SourceMacAddress).Distinct().Select(m => m.FormatMacAddress()));
+
+        async void OnPacketArrival(object sender, CaptureEventArgs e)
+        {
+            var received = DateTime.UtcNow;
+            if (e.Packet.LinkLayerType == LinkLayers.Ethernet)
+            {
+                var ethernetPacket = Packet.ParsePacket(e.Packet.LinkLayerType, e.Packet.Data) as EthernetPacket;
+                var sourceMacAddress = ethernetPacket.SourceHwAddress.ToString();
+
+                var ignore = false;
+                lock (_packetsLastReceived)
+                {
+                    ignore = _packetsLastReceived.ContainsKey(sourceMacAddress) && _packetsLastReceived[sourceMacAddress] + _config.IgnoreThreshold > received;
+                    _packetsLastReceived[sourceMacAddress] = received;
+                    _packetsLastReceived = _packetsLastReceived.Where(kvp => kvp.Value + _config.IgnoreThreshold > received).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+                }
+
+                if (ignore)
+                {
+                    return;
+                }
+
+                var packetMatchType = ethernetPacket.Extract(typeof(ARPPacket)) is ARPPacket ? PacketType.JoinRequest : PacketType.Any;
+
+                var actionNamesToRun = _config.Triggers
+                    .Where(t => t.SourceMacAddress == sourceMacAddress && t.PacketType == packetMatchType)
+                    .Select(t => t.ActionName)
+                    .Distinct();
+
+                foreach (var actionName in actionNamesToRun)
+                {
+                    var action = _config.Actions.First(a => a.Name == actionName);
+                    await _actionExecutor.Execute(action);
+                }
+            }
+        }
+
+        #endregion
+    }
+}

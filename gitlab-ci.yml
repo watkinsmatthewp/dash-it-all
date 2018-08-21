@@ -1,0 +1,15 @@
+image: microsoft/dotnet:2.1-sdk
+
+stages:
+  - build
+#  - test
+
+build_job:
+  stage: build
+  script:
+  - dotnet build
+ 
+# test_job:
+#  stage: test
+# script:
+# - dotnet test DashItAll.Tests
